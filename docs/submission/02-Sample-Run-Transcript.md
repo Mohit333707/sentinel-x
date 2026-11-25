@@ -1,0 +1,123 @@
+# SENTINEL-X — Sample Run Transcript
+
+**SYNTHETIC SAMPLE RUN / OFFLINE MODE** — This run used offline evidence-graph scoring. It is NOT a live Gemini run. A live Gemini run is pending a free API key. All data below is synthetic: the IP 192.0.2.45 is an RFC 5737 TEST-NET documentation address, the user is the synthetic name `unknown-user`, and no real person or system is involved.
+
+Trace ID: SX-DBB1B7B7 | Mode: offline | Date: 25 Nov 2026 | Execution time: 0.743 seconds | Tool calls: 4
+
+## Goal
+
+Investigate suspicious login activity. IP: 192.0.2.45, Failed logins: 35, Successful login: 1, Time: 02:30 AM, Device: Unknown
+
+This goal was given to the agent exactly as written above, through `python main.py --demo --offline`. The agent parsed it itself; no part of the goal was pre-filled into the verdict.
+
+## How to read this transcript
+
+Each step below has three parts: what the agent thought, what it did (the action, with the file and function that ran), and what it observed (the exact output it got back). After the steps come the evidence graph, the verification step, the abstention check, the human-approval gate, and the final report. Nothing in this transcript is a live LLM reply. In offline mode the planner follows a fixed step order with the same step names as the live planner, and the scorer in `sentinel_x/graph.py` stands in for LLM reasoning.
+
+## Step-by-step (thought / action / observation)
+
+### Step 1 — Understand the incident
+
+Thought: Before I do anything, I need the facts out of the goal sentence. An IP, two counts, a time, and a device. If I cannot parse those, I should stop, not guess.
+
+Action: `sentinel_x/agent.py`, node `understand_incident`, calls `parse_goal()` in `sentinel_x/tools.py`. The function uses regular expressions to pull the IP, the failed-login count, the successful-login count, and the hour out of the goal text, and it treats the device as unknown because the goal says "Device: Unknown".
+
+Observation: Parsed trace: IP 192.0.2.45, failed logins 35, successful login 1, hour 2, device_known False, country_change False. The step text recorded was: "Understand incident: parsed goal into IP, failed/successful logins, hour, device."
+
+### Step 2 — Create the investigation plan
+
+Thought: I have the facts. Now I need a plan, and the plan should name the tools in order so each step can be checked later. In live mode the LLM would pick the next tool from the evidence so far. In this offline run the plan is the fixed order with the same step names.
+
+Action: `sentinel_x/agent.py`, node `create_plan`, calls `offline_plan()` in `sentinel_x/planner.py`.
+
+Observation: Plan: `analyse_logs, check_ip, search_threat_intel, build_evidence_graph, verify_findings`. The step text recorded was: "Create investigation plan: analyse_logs, check_ip, search_threat_intel, build_evidence_graph, verify_findings. Offline mode: fixed plan order (same step names as live planner)."
+
+### Step 3 — Analyse the login logs
+
+Thought: 35 failures and 1 success is a lot of failures, but I want the numbers, not a feeling. What share of attempts failed? Was it at night? Was it a burst, meaning 10 or more failures?
+
+Action: `sentinel_x/agent.py`, node `analyse_logs`, calls `analyse_logs()` in `sentinel_x/tools.py`. That function builds a one-row pandas DataFrame from the trace and works out the totals. This is tool call 1 of 4.
+
+Observation: `{'total_attempts': 36, 'failure_rate': 0.972, 'failed_logins': 35, 'successful_login': 1, 'hour': 2, 'night_time': True, 'burst': True}`. So 36 attempts in total, 97.2% of them failed, at 2 in the morning, and the burst flag is true. One failure on its own would mean little. Thirty-five failures with one success at the end is the shape of someone trying passwords until one works.
+
+### Step 4 — Check the IP and device history
+
+Thought: The logs say what happened. Now I need to know where it came from. Is this IP known? Is the device one this account has used before? And does any public threat intel mention this IP?
+
+Action: `sentinel_x/agent.py`, node `check_ip_device`, calls `check_ip('192.0.2.45')` and `search_threat_intel('192.0.2.45 suspicious login brute force')` in `sentinel_x/tools.py`. These are tool calls 2 and 3 of 4.
+
+Observation: `check_ip()` saw that 192.0.2.45 starts with `192.0.2.`, which is a TEST-NET documentation range under RFC 5737, so it made no real network lookup and returned: `{'ip': '192.0.2.45', 'note': 'TEST-NET documentation range (RFC 5737) — synthetic, no real lookup performed.', 'country': 'unknown (synthetic)', 'org': 'unknown (synthetic)', 'status': 'synthetic'}`. The device is unknown, which the trace already said, and there is no device history to check against for a synthetic user. Threat intel hits: 0. Zero hits is not evidence of safety — it only means the free DuckDuckGo HTML search returned nothing for a synthetic address, which is exactly what I would expect. The step text recorded was: "Check IP/device history: {...}. Threat intel hits: 0."
+
+### Step 5 — Build the evidence graph
+
+Thought: I have log numbers, an IP note, and a device fact. None of them alone should decide this. I need them linked, so I can count how many separate facts point the same way, and spot the ones that point the other way.
+
+Action: `sentinel_x/agent.py`, node `build_graph`, calls `build_evidence_graph()` in `sentinel_x/graph.py` and then `graph_summary()` on the result. This is tool call 4 of 4.
+
+Observation: The graph has 7 nodes and 7 edges. 5 edges support malicious, 1 supports benign, 1 is neutral. The nodes are: `ip:192.0.2.45`, `user:unknown-user`, `device:unknown`, `event:failed-logins:35`, `event:success:1`, `time:2:00`, `country:same`. The edges are listed in full in the Evidence graph section below. The step text recorded was: "Build evidence graph: 7 nodes, 7 edges."
+
+### Step 6 — Verify the findings
+
+Thought: I have a draft verdict in mind, but a draft is not a verdict. I need to check it against the graph with a rule I cannot bend: a MALICIOUS call needs at least 3 malicious-supporting edges, and a strong benign side would be a contradiction.
+
+Action: `sentinel_x/agent.py`, node `verify_findings`, runs three functions in order. `evidence_score()` in `sentinel_x/graph.py` scores the trace. `decide_verdict()` in `sentinel_x/uncertainty.py` turns the score into a draft verdict. `verify_verdict()` in `sentinel_x/verifier.py` checks the draft against the graph.
+
+Observation: The score is 5.0, built up as 2.0 for 35 failed logins (30 or more), 1.0 for the 2 am hour (night, 00–05), 1.0 for the unknown device, and 1.0 for a success after 10 or more failures. The draft verdict is MALICIOUS, because 5.0 is above the 3.0 threshold. The verifier counted 5 malicious-supporting edges and 1 benign-supporting edge, and wrote back: "Verified: 5 malicious-supporting edge(s) back the verdict; no contradiction found." Revised: False. Final verdict: MALICIOUS. The step text recorded was: "Verify findings: draft MALICIOUS (score 5.0) -> final MALICIOUS. Revised: False. Reasons: Verified: 5 malicious-supporting edge(s) back the verdict; no contradiction found."
+
+### Step 7 — Generate the risk assessment
+
+Thought: The verdict is MALICIOUS and it survived verification. What risk does that mean, and what should a human do about it? The recommendation has to be specific, and it has to stay a recommendation, not an action.
+
+Action: `sentinel_x/agent.py`, node `risk_assessment`, maps the verdict to a risk level and a recommendation.
+
+Observation: Risk HIGH. Recommendation: "Block the IP, force password reset, review the account." The step text recorded was: "Generate risk assessment: risk HIGH. Recommendation: Block the IP, force password reset, review the account."
+
+### Step 8 — Human approval gate
+
+Thought: Blocking an IP and forcing a password reset are dangerous actions. A wrong block locks a real user out. So even with a HIGH risk verdict, I do not execute anything. I record that approval is pending and stop there.
+
+Action: `sentinel_x/agent.py`, node `human_approval`, sets the approval status. No tool is called, no IP is blocked, no password is reset.
+
+Observation: Approval status: "PENDING — human approval required before any dangerous action (block/reset). No dangerous action was executed; this run only produces a report." The step text recorded was: "Human approval gate: dangerous actions need human approval. None executed in this run."
+
+### Step 9 — Final incident report
+
+Thought: The investigation is done. The last step is to write everything down in one place, so a human can read the verdict, the evidence, and the steps without re-running anything.
+
+Action: `sentinel_x/agent.py`, node `final_report`, renders the report with `_render_report()` and writes it to `reports/incident_report_SX-DBB1B7B7.md`, plus the full trace JSON to `reports/trace_SX-DBB1B7B7.json`. The audit trail in `sentinel_x.db` gets a start event, one event per step, and a decision event with the draft verdict, final verdict, revised flag, and verifier reasons.
+
+Observation: Report written to `reports/incident_report_SX-DBB1B7B7.md`. Trace JSON written to `reports/trace_SX-DBB1B7B7.json`. The step text recorded was: "Final incident report generated."
+
+## Evidence graph
+
+Nodes: 7 | Edges: 7 | Malicious-supporting edges: 5 | Benign-supporting edges: 1 | Neutral edges: 1
+
+- `ip:192.0.2.45` --located_in--> `country:same` (supports: benign)
+- `ip:192.0.2.45` --used_device--> `device:unknown` (supports: malicious)
+- `ip:192.0.2.45` --attempted_from--> `event:failed-logins:35` (supports: malicious)
+- `ip:192.0.2.45` --logged_in_from--> `event:success:1` (supports: malicious)
+- `ip:192.0.2.45` --active_at--> `time:2:00` (supports: malicious)
+- `ip:192.0.2.45` --account_used_from--> `user:unknown-user` (supports: neutral)
+- `user:unknown-user` --owns_device--> `device:unknown` (supports: malicious)
+
+Read the graph plainly: five separate facts point toward malicious — the burst of failures, the success after those failures, the night hour, the unknown device, and the user-device link. One fact points the other way — the country did not change — and one is neutral, the account link itself. The verdict rests on five facts, not one, and the one benign edge is visible in the graph instead of being hidden. That is why the verifier could check the verdict at all.
+
+## Verification
+
+Draft verdict: MALICIOUS (evidence score 5.0) → Final verdict: **MALICIOUS**. Revised by verifier: False. Reasons: "Verified: 5 malicious-supporting edge(s) back the verdict; no contradiction found." Supporting counts: malicious 5, benign 1. The rule in `sentinel_x/verifier.py` is that a MALICIOUS draft needs at least 3 malicious-supporting edges; this run had 5. It also checks for contradiction (3 or more benign edges with a score under 4.0); this run had 1 benign edge and a score of 5.0, so there was no contradiction to act on.
+
+## Abstention check
+
+The verdict is MALICIOUS, not INSUFFICIENT_EVIDENCE, because the evidence score (5.0) is above the 3.0 threshold in `sentinel_x/uncertainty.py` and 5 graph edges support it. If the score had been between 1.0 and 3.0, the agent would have said INSUFFICIENT_EVIDENCE and listed the missing evidence instead of guessing. That is what happened to trace SX012 in the evaluation (score 2.0, 9 failures, known device, no country change), and to trace SX020 (score 1.5). Those two abstentions are the reason the investigation completion rate is 0.90 and not 1.0, and they are correct behaviour, not failures.
+
+## Human-approval gate
+
+PENDING — human approval required before any dangerous action (block/reset). No dangerous action was executed; this run only produces a report. The agent recommends blocking the IP, forcing a password reset, and reviewing the account, and a human decides whether to do any of it.
+
+## Final report
+
+Risk: **HIGH**. Verdict: **MALICIOUS**. Evidence score: 5.0. Draft verdict: MALICIOUS. Verification revised the verdict: False. Missing evidence: none. Recommendation: block the IP, force a password reset, and review the account — only after human approval. Tool calls: 4. Execution time: 0.743 seconds. Unsupported conclusions: 0. Full report: `reports/incident_report_SX-DBB1B7B7.md`. Full trace JSON: `reports/trace_SX-DBB1B7B7.json` (also shipped as `docs/submission/sample_trace.json`). Audit history for this trace: `python main.py --trace SX-DBB1B7B7`.
+
+## What this transcript does not show
+
+It does not show a live Gemini run, because there was not one. The planner followed a fixed step order, the scorer in `sentinel_x/graph.py` produced the score, and the LLM was not exercised. A live run would add LLM summaries in the understand step, an LLM-chosen next tool in the plan step, and an LLM verification note in step 6, and those lines would appear in the step text. Until a free Gemini key is available, this offline transcript is the honest record of what the pipeline does.
