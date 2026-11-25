@@ -1,0 +1,223 @@
+{
+  "mode": "offline evidence-graph evaluation \u2014 LLM reasoning not exercised; live Gemini run pending a free key",
+  "metrics": {
+    "n_traces": 20,
+    "true_positives": 11,
+    "false_positives": 0,
+    "false_negatives": 1,
+    "true_negatives": 8,
+    "precision": 1.0,
+    "recall": 0.9167,
+    "f1_score": 0.9565,
+    "false_positive_rate": 0.0,
+    "investigation_completion_rate": 0.9,
+    "abstentions": 2,
+    "avg_tool_calls": 4.0,
+    "avg_execution_time_seconds": 0.839,
+    "unsupported_conclusion_rate": 0.0,
+    "unsupported_conclusions": 0,
+    "total_conclusions": 20
+  },
+  "per_trace": [
+    {
+      "id": "SX001",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 6.0,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 0.78,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX002",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 5.5,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 0.77,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX003",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 4.5,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 1.007,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX004",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 4.5,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 1.026,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX005",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 5.5,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 0.82,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX006",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 4.0,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 1.023,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX007",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 4.0,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 0.98,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX008",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 4.0,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 0.723,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX009",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 4.5,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 1.211,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX010",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 4.0,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 0.898,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX011",
+      "true_label": "malicious",
+      "predicted": "MALICIOUS",
+      "score": 3.5,
+      "risk": "HIGH",
+      "tool_calls": 4,
+      "time_seconds": 0.745,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX012",
+      "true_label": "malicious",
+      "predicted": "INSUFFICIENT_EVIDENCE",
+      "score": 2.0,
+      "risk": "UNKNOWN",
+      "tool_calls": 4,
+      "time_seconds": 0.719,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX013",
+      "true_label": "benign",
+      "predicted": "BENIGN",
+      "score": 0.0,
+      "risk": "LOW",
+      "tool_calls": 4,
+      "time_seconds": 0.762,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX014",
+      "true_label": "benign",
+      "predicted": "BENIGN",
+      "score": 0.0,
+      "risk": "LOW",
+      "tool_calls": 4,
+      "time_seconds": 0.751,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX015",
+      "true_label": "benign",
+      "predicted": "BENIGN",
+      "score": 0.5,
+      "risk": "LOW",
+      "tool_calls": 4,
+      "time_seconds": 0.719,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX016",
+      "true_label": "benign",
+      "predicted": "BENIGN",
+      "score": 0.0,
+      "risk": "LOW",
+      "tool_calls": 4,
+      "time_seconds": 0.754,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX017",
+      "true_label": "benign",
+      "predicted": "BENIGN",
+      "score": 0.5,
+      "risk": "LOW",
+      "tool_calls": 4,
+      "time_seconds": 0.742,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX018",
+      "true_label": "benign",
+      "predicted": "BENIGN",
+      "score": 0.5,
+      "risk": "LOW",
+      "tool_calls": 4,
+      "time_seconds": 0.855,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX019",
+      "true_label": "benign",
+      "predicted": "BENIGN",
+      "score": 1.0,
+      "risk": "LOW",
+      "tool_calls": 4,
+      "time_seconds": 0.758,
+      "revised_by_verifier": false
+    },
+    {
+      "id": "SX020",
+      "true_label": "benign",
+      "predicted": "INSUFFICIENT_EVIDENCE",
+      "score": 1.5,
+      "risk": "UNKNOWN",
+      "tool_calls": 4,
+      "time_seconds": 0.732,
+      "revised_by_verifier": false
+    }
+  ]
+}
