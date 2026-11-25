@@ -1,0 +1,103 @@
+{
+  "trace_id": "SX-DBB1B7B7",
+  "mode": "offline",
+  "goal": "Investigate suspicious login activity. IP: 192.0.2.45, Failed logins: 35, Successful login: 1, Time: 02:30 AM, Device: Unknown",
+  "trace": {
+    "ip": "192.0.2.45",
+    "failed_logins": 35,
+    "successful_login": 1,
+    "hour": 2,
+    "device_known": false,
+    "country_change": false
+  },
+  "verdict": "MALICIOUS",
+  "draft_verdict": "MALICIOUS",
+  "score": 5.0,
+  "risk": "HIGH",
+  "verification": {
+    "final_verdict": "MALICIOUS",
+    "revised": false,
+    "reasons": [
+      "Verified: 5 malicious-supporting edge(s) back the verdict; no contradiction found."
+    ],
+    "supporting_count": 5,
+    "malicious_supporting": 5,
+    "benign_supporting": 1
+  },
+  "missing_evidence": [],
+  "graph": {
+    "nodes": 7,
+    "edges": 7,
+    "node_list": [
+      "country:same",
+      "device:unknown",
+      "event:failed-logins:35",
+      "event:success:1",
+      "ip:192.0.2.45",
+      "time:2:00",
+      "user:unknown-user"
+    ],
+    "edge_list": [
+      {
+        "from": "ip:192.0.2.45",
+        "to": "country:same",
+        "relation": "located_in",
+        "supports": "benign"
+      },
+      {
+        "from": "ip:192.0.2.45",
+        "to": "device:unknown",
+        "relation": "used_device",
+        "supports": "malicious"
+      },
+      {
+        "from": "ip:192.0.2.45",
+        "to": "event:failed-logins:35",
+        "relation": "attempted_from",
+        "supports": "malicious"
+      },
+      {
+        "from": "ip:192.0.2.45",
+        "to": "event:success:1",
+        "relation": "logged_in_from",
+        "supports": "malicious"
+      },
+      {
+        "from": "ip:192.0.2.45",
+        "to": "time:2:00",
+        "relation": "active_at",
+        "supports": "malicious"
+      },
+      {
+        "from": "ip:192.0.2.45",
+        "to": "user:unknown-user",
+        "relation": "account_used_from",
+        "supports": "neutral"
+      },
+      {
+        "from": "user:unknown-user",
+        "to": "device:unknown",
+        "relation": "owns_device",
+        "supports": "malicious"
+      }
+    ],
+    "malicious_supporting_edges": 5,
+    "benign_supporting_edges": 1
+  },
+  "steps": [
+    "Understand incident: parsed goal into IP, failed/successful logins, hour, device.",
+    "Create investigation plan: analyse_logs, check_ip, search_threat_intel, build_evidence_graph, verify_findings. Offline mode: fixed plan order (same step names as live planner).",
+    "Analyse login logs (pandas): {'total_attempts': 36, 'failure_rate': 0.972, 'failed_logins': 35, 'successful_login': 1, 'hour': 2, 'night_time': True, 'burst': True}",
+    "Check IP/device history: {'ip': '192.0.2.45', 'note': 'TEST-NET documentation range (RFC 5737) \u2014 synthetic, no real lookup performed.', 'country': 'unknown (synthetic)', 'org': 'unknown (synthetic)', 'status': 'synthetic'}. Threat intel hits: 0.",
+    "Build evidence graph: 7 nodes, 7 edges.",
+    "Verify findings: draft MALICIOUS (score 5.0) -> final MALICIOUS. Revised: False. Reasons: Verified: 5 malicious-supporting edge(s) back the verdict; no contradiction found.",
+    "Generate risk assessment: risk HIGH. Recommendation: Block the IP, force password reset, review the account.",
+    "Human approval gate: dangerous actions need human approval. None executed in this run.",
+    "Final incident report generated."
+  ],
+  "tool_calls": 4,
+  "execution_time_seconds": 0.743,
+  "unsupported_conclusions": 0,
+  "approval_status": "PENDING \u2014 human approval required before any dangerous action (block/reset). No dangerous action was executed; this run only produces a report.",
+  "report_path": "reports/incident_report_SX-DBB1B7B7.md"
+}
