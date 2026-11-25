@@ -10,7 +10,7 @@ Agentic AI Engineer Intern
 
 https://github.com/Mohit333707/sentinel-x
 
-Note: the repository does not exist yet. The parent will create it and push this exact code after the submission is built. The code in this submission is the exact code for that repo, and the link above is where it will live.
+Note: this repository is live — https://github.com/Mohit333707/sentinel-x — with the full SENTINEL-X code, README, React frontend, tests, evaluation, and all submission documents, plus 05-Code.zip in docs/submission/.
 
 ## Domain / goal
 
