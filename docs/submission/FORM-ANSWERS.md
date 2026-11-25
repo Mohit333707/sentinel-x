@@ -30,7 +30,7 @@ All data in this project is mock and synthetic, and I designed it that way on pu
 
 ## Total time spent
 
-7 hours — time building Sentinel (the first version) plus SENTINEL-X today, 25 November 2026. I started with Sentinel, a simpler agent that ran the same investigation steps in a fixed order with the LLM doing the reasoning, and then I rebuilt it as SENTINEL-X with the five features that make it different: the NetworkX evidence graph, the LangGraph planner with a real branch, the self-verification step that can revise a verdict, the abstention bands, and the SQLite plus JSON audit trail. Most of the 7 hours went into the agent and the graph, because getting the LangGraph state right took several tries — a node that forgets to return a key silently drops it, and I lost time to that before I made every node return its full set of keys. After the agent worked, I built the Streamlit dashboard, then the tests (14 tests), then the evaluation over 20 traces, then the React frontend and the FastAPI backend, and then the submission documents: the architecture diagram, the sample run transcript, the monitoring report, and these form answers. The evaluation numbers took the least time of all, because `evaluation/run_evaluation.py` computes them with scikit-learn from real runs, so there was nothing to write by hand.
+15 hours. I first built Sentinel, a simple version, then rebuilt it as SENTINEL-X with the evidence graph, planner, verification, abstention and audit trail. Most of the time went into the agent and the graph, then the React frontend and the tests. The evaluation was quick because the script calculates the numbers itself.
 
 ## Write-up — approach
 
