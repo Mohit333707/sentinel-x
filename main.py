@@ -3,6 +3,9 @@
 
     python main.py --demo                 live demo (needs GEMINI_API_KEY)
     python main.py --demo --offline       offline evidence-graph demo (labelled, no key needed)
+    python main.py --demo --offline --simulate-failure threat-intel
+                                          demo with the threat-intel tool deliberately
+                                          broken, to show how the agent recovers
     python main.py --goal "..."           run with your own goal
     python main.py --goal "..." --offline run that goal offline
     python main.py --trace SX-XXXXXXX     show the audit history for a trace id
@@ -23,6 +26,8 @@ def parse_args(argv=None):
     p.add_argument("--demo", action="store_true")
     p.add_argument("--offline", action="store_true", help="Offline evidence-graph mode (labelled, for testing only — NOT a live Gemini run)")
     p.add_argument("--trace", type=str, default=None, help="Show audit history for a trace id")
+    p.add_argument("--simulate-failure", type=str, default=None, choices=["threat-intel"],
+                   help="Deliberately break one tool to show recovery (threat-intel: point it at a host that does not exist)")
     p.add_argument("--max-steps", type=int, default=10)
     return p.parse_args(argv)
 
@@ -50,7 +55,10 @@ def main(argv=None) -> int:
         print(f"LLM: {llm.provider} / {llm.model}  (live mode)")
     else:
         print("OFFLINE MODE — evidence-graph scoring only. This is NOT a live Gemini run.")
-    agent = SentinelXAgent(llm=llm, offline=args.offline, max_steps=args.max_steps)
+    if args.simulate_failure:
+        print(f"SIMULATED FAILURE — the {args.simulate_failure} tool is deliberately broken for this run. Watch for the recovery.")
+    agent = SentinelXAgent(llm=llm, offline=args.offline, max_steps=args.max_steps,
+                           simulate_failure={args.simulate_failure} if args.simulate_failure else None)
     result = agent.run(goal)
     print(f"\nTrace ID: {result['trace_id']}   Mode: {result['mode']}")
     print(f"Verdict: {result['verdict']}   Risk: {result['risk']}   Score: {result['score']}")
