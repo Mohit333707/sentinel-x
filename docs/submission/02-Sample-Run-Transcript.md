@@ -4,6 +4,18 @@
 
 Trace ID: SX-DBB1B7B7 | Mode: offline | Date: 25 Nov 2026 | Execution time: 0.743 seconds | Tool calls: 4
 
+## The three runs in this file
+
+This file has three real offline runs, not one. All three are synthetic, all three used offline evidence-graph scoring, and none of them is a live Gemini run.
+
+| Run | Trace | Goal | Verdict | Why it is here |
+|---|---|---|---|---|
+| 1 | SX-DBB1B7B7 | 192.0.2.45, 35 failed logins, 1 success, 02:30 AM, unknown device | MALICIOUS, HIGH, score 5.0 | The main demo: a clear attack, investigated end to end. |
+| 2 | SX-8309A2FF | 198.51.100.20, 1 failed login, 1 success, 02:00 PM, known device | BENIGN, LOW, score 0.0 | A normal login, to show the agent can say nothing is wrong. |
+| 3 | SX-CD1EBF01 | Same goal as Run 1, with the threat-intel tool deliberately broken | MALICIOUS, HIGH, score 5.0 | A failure the agent detects, retries, and recovers from. |
+
+# Run 1 — the demo: 192.0.2.45, clearly malicious (trace SX-DBB1B7B7, real run)
+
 ## Goal
 
 Investigate suspicious login activity. IP: 192.0.2.45, Failed logins: 35, Successful login: 1, Time: 02:30 AM, Device: Unknown
@@ -118,6 +130,258 @@ PENDING — human approval required before any dangerous action (block/reset). N
 
 Risk: **HIGH**. Verdict: **MALICIOUS**. Evidence score: 5.0. Draft verdict: MALICIOUS. Verification revised the verdict: False. Missing evidence: none. Recommendation: block the IP, force a password reset, and review the account — only after human approval. Tool calls: 4. Execution time: 0.743 seconds. Unsupported conclusions: 0. Full report: `reports/incident_report_SX-DBB1B7B7.md`. Full trace JSON: `reports/trace_SX-DBB1B7B7.json` (also shipped as `docs/submission/sample_trace.json`). Audit history for this trace: `python main.py --trace SX-DBB1B7B7`.
 
-## What this transcript does not show
+---
 
-It does not show a live Gemini run, because there was not one. The planner followed a fixed step order, the scorer in `sentinel_x/graph.py` produced the score, and the LLM was not exercised. A live run would add LLM summaries in the understand step, an LLM-chosen next tool in the plan step, and an LLM verification note in step 6, and those lines would appear in the step text. Until a free Gemini key is available, this offline transcript is the honest record of what the pipeline does.
+# Run 2 — a benign daytime login (trace SX014, real run)
+
+Trace ID: SX-8309A2FF | Mode: offline | Date: 25 Nov 2026 | Execution time: 1.049 seconds | Tool calls: 4
+
+## Goal
+
+Investigate suspicious login activity. IP: 198.51.100.20, Failed logins: 1, Successful login: 1, Time: 02:00 PM, Device: Known
+
+This is trace SX014 from `data/synthetic_traces.csv`, the benign trace I use in the evaluation. I ran it for real with the agent, passing the trace in directly, because I wanted a transcript that shows the agent saying "nothing wrong here" — a security agent that only ever says "attack" is not an agent, it is an alarm that never stops. The goal was given exactly as written above. Nothing was pre-filled into the verdict.
+
+## Step-by-step (thought / action / observation)
+
+### Step 1 — Understand the incident
+
+Thought: Same as Run 1 — pull the facts out of the goal first. One failed login, one success, 2 in the afternoon, known device. Nothing here looks alarming yet, but I should not decide that until I have checked the logs and the graph.
+
+Action: `sentinel_x/agent.py`, node `understand_incident`, calls `parse_goal()` in `sentinel_x/tools.py`.
+
+Observation: Parsed trace: IP 198.51.100.20, failed logins 1, successful login 1, hour 14, device_known True, country_change False. The step text recorded was: "Understand incident: parsed goal into IP, failed/successful logins, hour, device."
+
+### Step 2 — Create the investigation plan
+
+Thought: Same plan shape as Run 1, same five tools in the same order. A benign-looking case gets the same investigation as a scary one. That is the point — the plan does not change because the goal looks harmless.
+
+Action: `sentinel_x/agent.py`, node `create_plan`, calls `offline_plan()` in `sentinel_x/planner.py`.
+
+Observation: Plan: `analyse_logs, check_ip, search_threat_intel, build_evidence_graph, verify_findings. Offline mode: fixed plan order (same step names as live planner).`
+
+### Step 3 — Analyse the login logs
+
+Thought: One failure out of two attempts is a 50% failure rate, which sounds high until you look at the count: it is one mistyped password, not a burst. The numbers matter more than the rate here.
+
+Action: `sentinel_x/agent.py`, node `analyse_logs`, calls `analyse_logs()` in `sentinel_x/tools.py` (pandas). This is tool call 1 of 4.
+
+Observation: `{'total_attempts': 2, 'failure_rate': 0.5, 'failed_logins': 1, 'successful_login': 1, 'hour': 14, 'night_time': False, 'burst': False}`. Two attempts, one failure, 2 pm, not night, not a burst. The step text recorded was: "Analyse login logs (pandas): {'total_attempts': 2, 'failure_rate': 0.5, 'failed_logins': 1, 'successful_login': 1, 'hour': 14, 'night_time': False, 'burst': False}".
+
+### Step 4 — Check the IP and device history
+
+Thought: The device is known, which is the strongest benign signal I have so far. The IP is another TEST-NET address, so no real lookup happens, and threat intel returns nothing, which means nothing here — zero hits on a synthetic address is expected, not evidence.
+
+Action: `sentinel_x/agent.py`, node `check_ip_device`, calls `check_ip('198.51.100.20')` and `search_threat_intel('198.51.100.20 suspicious login brute force')` in `sentinel_x/tools.py`. These are tool calls 2 and 3 of 4.
+
+Observation: `check_ip()` returned `{'ip': '198.51.100.20', 'note': 'TEST-NET documentation range (RFC 5737) — synthetic, no real lookup performed.', 'country': 'unknown (synthetic)', 'org': 'unknown (synthetic)', 'status': 'synthetic'}`. Threat intel hits: 0. The step text recorded was: "Check IP/device history: {...}. Threat intel hits: 0."
+
+### Step 5 — Build the evidence graph
+
+Thought: Same as Run 1 — link the facts and count which way they point. I expect this graph to point the other way from Run 1, and if it does not, something is wrong with the graph code, not with the login.
+
+Action: `sentinel_x/agent.py`, node `build_graph`, calls `build_evidence_graph()` in `sentinel_x/graph.py` and then `graph_summary()`. This is tool call 4 of 4.
+
+Observation: The graph has 7 nodes and 7 edges. 0 edges support malicious, 3 support benign, 4 are neutral. The nodes are: `ip:198.51.100.20`, `user:unknown-user`, `device:known`, `event:failed-logins:1`, `event:success:1`, `time:14:00`, `country:same`. The step text recorded was: "Build evidence graph: 7 nodes, 7 edges."
+
+### Step 6 — Verify the findings
+
+Thought: The draft should be BENIGN. The check is the same as Run 1, just the other way round: a low score and benign edges that agree with it.
+
+Action: `sentinel_x/agent.py`, node `verify_findings`, runs `evidence_score()` in `sentinel_x/graph.py`, `decide_verdict()` in `sentinel_x/uncertainty.py`, and `verify_verdict()` in `sentinel_x/verifier.py`.
+
+Observation: The score is 0.0. One failure is below the lowest scoring band (3 or more failures adds 0.5), the hour is 14 so no night point, the device is known so no point there, the country did not change, and the success came after fewer than 10 failures so no point there either. Draft verdict BENIGN, because 0.0 is below the 1.0 threshold. The verifier wrote back: "Verified: score 0.0 is low and 3 benign-supporting edge(s) agree." Revised: False. Final verdict: BENIGN. The step text recorded was: "Verify findings: draft BENIGN (score 0.0) -> final BENIGN. Revised: False. Reasons: Verified: score 0.0 is low and 3 benign-supporting edge(s) agree."
+
+### Step 7 — Generate the risk assessment
+
+Thought: Benign and verified. The recommendation should be the smallest one possible: do nothing, keep watching.
+
+Action: `sentinel_x/agent.py`, node `risk_assessment`, maps the verdict to a risk level and a recommendation.
+
+Observation: Risk LOW. Recommendation: "No action needed; keep monitoring." The step text recorded was: "Generate risk assessment: risk LOW. Recommendation: No action needed; keep monitoring."
+
+### Step 8 — Human approval gate
+
+Thought: There is nothing dangerous to approve here, but the gate runs anyway. Every run ends the same way, so no run can skip it by accident.
+
+Action: `sentinel_x/agent.py`, node `human_approval`, sets the approval status. No tool is called, nothing is blocked.
+
+Observation: Approval status: "PENDING — human approval required before any dangerous action (block/reset). No dangerous action was executed; this run only produces a report."
+
+### Step 9 — Final incident report
+
+Thought: Same as Run 1 — write it all down so a human can read the verdict and the evidence without re-running anything.
+
+Action: `sentinel_x/agent.py`, node `final_report`, renders the report with `_render_report()` and writes it to `reports/incident_report_SX-8309A2FF.md`, plus the full trace JSON to `reports/trace_SX-8309A2FF.json`.
+
+Observation: Report written to `reports/incident_report_SX-8309A2FF.md`. Trace JSON written to `reports/trace_SX-8309A2FF.json`.
+
+## Evidence graph
+
+Nodes: 7 | Edges: 7 | Malicious-supporting edges: 0 | Benign-supporting edges: 3 | Neutral edges: 4
+
+- `ip:198.51.100.20` --located_in--> `country:same` (supports: benign)
+- `ip:198.51.100.20` --used_device--> `device:known` (supports: benign)
+- `ip:198.51.100.20` --attempted_from--> `event:failed-logins:1` (supports: neutral)
+- `ip:198.51.100.20` --logged_in_from--> `event:success:1` (supports: neutral)
+- `ip:198.51.100.20` --active_at--> `time:14:00` (supports: neutral)
+- `ip:198.51.100.20` --account_used_from--> `user:unknown-user` (supports: neutral)
+- `user:unknown-user` --owns_device--> `device:known` (supports: benign)
+
+Read the graph plainly: three facts point toward benign — the known device (twice, once from the IP and once from the user) and the unchanged country. Nothing points toward malicious. Four edges are neutral, including the single failed login, which on its own means nothing. This is the run that keeps the false positive rate at 0.0. If the agent had called this malicious, a real user would have been locked out for typing one password wrong at lunch.
+
+## Verification
+
+Draft verdict: BENIGN (evidence score 0.0) → Final verdict: **BENIGN**. Revised by verifier: False. Reasons: "Verified: score 0.0 is low and 3 benign-supporting edge(s) agree." Supporting counts: malicious 0, benign 3.
+
+## Abstention check
+
+The verdict is BENIGN, not INSUFFICIENT_EVIDENCE, because the evidence score (0.0) is below the 1.0 threshold in `sentinel_x/uncertainty.py` and 3 graph edges support it. The agent does not abstain here because the evidence is not thin — it is clear, and it points one way.
+
+## Human-approval gate
+
+PENDING — human approval required before any dangerous action (block/reset). No dangerous action was executed; this run only produces a report. Nothing needed approval here anyway, since the recommendation is to do nothing.
+
+## Final report
+
+Risk: **LOW**. Verdict: **BENIGN**. Evidence score: 0.0. Draft verdict: BENIGN. Verification revised the verdict: False. Missing evidence: none. Recommendation: no action needed, keep monitoring. Tool calls: 4. Execution time: 1.049 seconds. Unsupported conclusions: 0. Full report: `reports/incident_report_SX-8309A2FF.md`. Full trace JSON: `reports/trace_SX-8309A2FF.json`.
+
+---
+
+# Run 3 — the threat-intel tool fails, and the agent recovers (trace SX-CD1EBF01, real run)
+
+Trace ID: SX-CD1EBF01 | Mode: offline | Date: 25 Nov 2026 | Execution time: 0.693 seconds | Tool calls: 4
+
+## What I broke, and why
+
+The task asks for at least one deliberately induced failure, handled gracefully, with the recovery shown. So I broke a tool on purpose. The command was:
+
+`python main.py --demo --offline --simulate-failure threat-intel`
+
+That flag is real code, not a story. `main.py` passes `simulate_failure={"threat-intel"}` into `SentinelXAgent`, and the `check_ip_device` node in `sentinel_x/agent.py` then points `search_threat_intel()` at `https://threat-intel.invalid.example` with a 3-second timeout, instead of at DuckDuckGo. That host does not exist. The `.invalid` top-level domain is reserved so it can never resolve. I picked that on purpose: the failure has to come from the network, not from me writing "error" into a string. The tool is in `sentinel_x/tools.py`, and it takes a `base_url` argument for exactly this test. Everything below is the real output of that run. I also re-ran the same command through the CLI afterwards, which produced trace SX-035255A1 with the same verdict, the same failure, and the same recovery in 0.452 seconds, so this is not a one-off.
+
+## Goal
+
+Investigate suspicious login activity. IP: 192.0.2.45, Failed logins: 35, Successful login: 1, Time: 02:30 AM, Device: Unknown
+
+Same goal as Run 1, on purpose. The only difference between Run 1 and Run 3 is the broken tool. That way the comparison is clean: same facts in, one tool out, and you can see exactly what changes and what does not.
+
+## Step-by-step (thought / action / observation)
+
+### Steps 1 to 3 — same as Run 1
+
+Thought: Understand the incident, make the plan, analyse the logs. Nothing here touches the broken tool, so nothing changes.
+
+Action: Nodes `understand_incident`, `create_plan`, `analyse_logs` in `sentinel_x/agent.py`, same as Run 1.
+
+Observation: Parsed trace: IP 192.0.2.45, failed logins 35, successful login 1, hour 2, device_known False, country_change False. Plan: `analyse_logs, check_ip, search_threat_intel, build_evidence_graph, verify_findings`. Log analysis: `{'total_attempts': 36, 'failure_rate': 0.972, 'failed_logins': 35, 'successful_login': 1, 'hour': 2, 'night_time': True, 'burst': True}`. Tool calls so far: 1 of 4.
+
+### Step 4 — Check the IP and device history: the tool fails, twice
+
+Thought: The IP check worked — 192.0.2.45 is TEST-NET, so no real lookup, same as Run 1. Then the threat-intel search failed. A tool returning nothing is not the same as a tool returning zero hits. Zero hits is an answer. An exception is a failure, and the agent has to tell the difference, or it will quietly treat a broken tool as clean evidence.
+
+Action: `sentinel_x/agent.py`, node `check_ip_device`, calls `check_ip('192.0.2.45')` and then `search_threat_intel()` with the broken base URL. This is tool calls 2 and 3 of 4. The exact code path is in `sentinel_x/agent.py`, in the `if "threat-intel" in self.simulate_failure:` branch of `_check_ip_device()`.
+
+Observation — attempt 1, the real error, copied word for word from the run:
+
+`HTTPSConnectionPool(host='threat-intel.invalid.example', port=443): Max retries exceeded with url: /html/?q=192.0.2.45%20suspicious%20login%20brute%20force (Caused by ProxyError('Unable to connect to proxy', RemoteDisconnected('Remote end closed connection without response')))`
+
+The agent detected the failure — the tool returned an `error` field and zero results — and retried once, as coded. Attempt 2 failed with the same error, word for word. Two failures, same cause. At that point the agent stopped retrying. A third try would have been stubbornness, not recovery, and the error was not the kind that fixes itself in a second: the host does not exist.
+
+Observation — the recovery, in the agent's own recorded step text:
+
+"Check IP/device history: {...}. Threat-intel tool FAILED (attempt 1: ...; retry attempt 2: ...). Failure detected — no results returned. Recovered by continuing with log analysis, IP note and evidence graph; threat-intel evidence is recorded as missing in the final report."
+
+So the recovery was three things, and all three are in the trace JSON (`reports/trace_SX-CD1EBF01.json`, field `threat_intel`): the tool result is stored with `attempts: 2` and `recovered: true` instead of being dropped; the investigation continued with the evidence it did have — the log analysis, the IP note, and the evidence graph; and the final report says plainly that public threat-intel evidence is missing from this run, instead of pretending the search came back clean. The threat-intel count stayed 0, but the reason it is 0 is written down, and that is the difference between a failure and a clean result.
+
+### Step 5 — Build the evidence graph
+
+Thought: The graph does not need threat intel. It is built from the logs, the IP, the device, the time, and the country. The missing tool changes nothing here, and if it did, that would mean the graph was depending on a tool it should not depend on.
+
+Action: `sentinel_x/agent.py`, node `build_graph`, calls `build_evidence_graph()` in `sentinel_x/graph.py` and then `graph_summary()`. This is tool call 4 of 4.
+
+Observation: The graph has 7 nodes and 7 edges, exactly the same as Run 1. 5 edges support malicious, 1 supports benign, 1 is neutral. The step text recorded was: "Build evidence graph: 7 nodes, 7 edges."
+
+### Step 6 — Verify the findings
+
+Thought: The draft is MALICIOUS with a score of 5.0, same as Run 1. The question is whether the missing threat-intel evidence should change that. It should not, and the reason is simple: the verdict never depended on threat intel. All five supporting edges come from the logs, the device, the time, and the success after failures. But I want to say the other half of that honestly too: if the score had been borderline — say 2.0, like trace SX012 — the missing evidence could have been the difference between a verdict and an abstention, and then the right answer would have been INSUFFICIENT_EVIDENCE, not a guess. The verifier does not know about the broken tool, and it does not need to. It checks the graph, and the graph is complete.
+
+Action: `sentinel_x/agent.py`, node `verify_findings`, runs `evidence_score()` in `sentinel_x/graph.py`, `decide_verdict()` in `sentinel_x/uncertainty.py`, and `verify_verdict()` in `sentinel_x/verifier.py`.
+
+Observation: Score 5.0, draft MALICIOUS, verifier: "Verified: 5 malicious-supporting edge(s) back the verdict; no contradiction found." Revised: False. Final verdict: MALICIOUS. The step text recorded was: "Verify findings: draft MALICIOUS (score 5.0) -> final MALICIOUS. Revised: False. Reasons: Verified: 5 malicious-supporting edge(s) back the verdict; no contradiction found."
+
+### Step 7 — Generate the risk assessment
+
+Thought: Same verdict as Run 1, same risk, same recommendation. The broken tool cost us one kind of evidence, not the verdict.
+
+Action: `sentinel_x/agent.py`, node `risk_assessment`.
+
+Observation: Risk HIGH. Recommendation: "Block the IP, force password reset, review the account." The step text recorded was: "Generate risk assessment: risk HIGH. Recommendation: Block the IP, force password reset, review the account."
+
+### Step 8 — Human approval gate
+
+Thought: Same as Run 1. The approval gate matters more, not less, when a tool has failed. A run with missing evidence should never take a dangerous action on its own.
+
+Action: `sentinel_x/agent.py`, node `human_approval`, sets the approval status. No tool is called, nothing is blocked.
+
+Observation: Approval status: "PENDING — human approval required before any dangerous action (block/reset). No dangerous action was executed; this run only produces a report."
+
+### Step 9 — Final incident report
+
+Thought: The report has one extra job in this run: it has to say what is missing. A report that hides a failed tool is worse than a report with a gap in it.
+
+Action: `sentinel_x/agent.py`, node `final_report`, renders the report and writes it to `reports/incident_report_SX-CD1EBF01.md`, plus the full trace JSON to `reports/trace_SX-CD1EBF01.json`. The trace JSON carries the whole failure record under `threat_intel`, including both error strings, `attempts: 2`, and `recovered: true`, and the top-level field `simulated_failure: ["threat-intel"]`.
+
+Observation: Report written to `reports/incident_report_SX-CD1EBF01.md`. Trace JSON written to `reports/trace_SX-CD1EBF01.json`. Audit history for this trace: `python main.py --trace SX-CD1EBF01`.
+
+## Evidence graph
+
+Nodes: 7 | Edges: 7 | Malicious-supporting edges: 5 | Benign-supporting edges: 1 | Neutral edges: 1
+
+Same graph as Run 1, edge for edge:
+
+- `ip:192.0.2.45` --located_in--> `country:same` (supports: benign)
+- `ip:192.0.2.45` --used_device--> `device:unknown` (supports: malicious)
+- `ip:192.0.2.45` --attempted_from--> `event:failed-logins:35` (supports: malicious)
+- `ip:192.0.2.45` --logged_in_from--> `event:success:1` (supports: malicious)
+- `ip:192.0.2.45` --active_at--> `time:2:00` (supports: malicious)
+- `ip:192.0.2.45` --account_used_from--> `user:unknown-user` (supports: neutral)
+- `user:unknown-user` --owns_device--> `device:unknown` (supports: malicious)
+
+## Verification
+
+Draft verdict: MALICIOUS (evidence score 5.0) → Final verdict: **MALICIOUS**. Revised by verifier: False. Reasons: "Verified: 5 malicious-supporting edge(s) back the verdict; no contradiction found." Supporting counts: malicious 5, benign 1.
+
+## Abstention check
+
+The verdict is MALICIOUS, not INSUFFICIENT_EVIDENCE, because the evidence score (5.0) is above the 3.0 threshold and 5 graph edges support it. The missing threat-intel evidence did not push the score into the middle band, so there was nothing to abstain over. If the score had been between 1.0 and 3.0, the agent would have abstained and listed the missing threat-intel evidence first in the missing-evidence list.
+
+## What was missing, stated plainly
+
+Public threat-intel evidence is missing from this run. The search tool failed twice and was skipped. Everything else — log analysis, IP note, evidence graph, verification — ran normally. The final report says this in its own words, and the trace JSON records it under `threat_intel` with `recovered: true` and the full error text. A human reading the report can see the gap and decide whether to re-run the search by hand before approving the block.
+
+## Human-approval gate
+
+PENDING — human approval required before any dangerous action (block/reset). No dangerous action was executed; this run only produces a report.
+
+## Final report
+
+Risk: **HIGH**. Verdict: **MALICIOUS**. Evidence score: 5.0. Draft verdict: MALICIOUS. Verification revised the verdict: False. Missing evidence: public threat-intel evidence (tool failed twice, see above). Recommendation: block the IP, force password reset, review the account — only after human approval. Tool calls: 4 (one of them failed twice and recovered). Execution time: 0.693 seconds. Unsupported conclusions: 0. Full report: `reports/incident_report_SX-CD1EBF01.md`. Full trace JSON: `reports/trace_SX-CD1EBF01.json`.
+
+## How to reproduce this run
+
+```bash
+python main.py --demo --offline --simulate-failure threat-intel
+```
+
+That is the whole reproduction. No key is needed, because it runs offline. The flag is in `main.py` (`--simulate-failure`, choices: `threat-intel`), the failure is induced in `sentinel_x/agent.py` (`_check_ip_device`, the `simulate_failure` branch), and the tool itself is `search_threat_intel()` in `sentinel_x/tools.py`, which takes a `base_url` argument for this test. The same failure is covered by a test, `test_simulated_threat_intel_failure_recovers` in `tests/test_sentinel_x.py`, which runs the agent with the broken tool and checks that it still finishes with MALICIOUS / HIGH, that the threat-intel result records 2 attempts and `recovered: true`, and that the recorded step says FAILED and Recovered. I ran that test; it passes.
+
+---
+
+## What these transcripts do not show
+
+They do not show a live Gemini run, because there was not one. In all three runs the planner followed a fixed step order, the scorer in `sentinel_x/graph.py` produced the score, and the LLM was not exercised. A live run would add LLM summaries in the understand step, an LLM-chosen next tool in the plan step, and an LLM verification note in step 6, and those lines would appear in the step text. Until a free Gemini key is available, these offline transcripts are the honest record of what the pipeline does.
+
+## What the three runs show together
+
+Run 1 shows the agent working when everything works. Run 2 shows it working when the answer is "nothing is wrong" — the false positive rate stays 0.0 because a single mistyped password at lunch does not become an incident. Run 3 shows it working when a tool breaks: it notices the failure, retries once, carries on with the evidence it has, and writes down what is missing instead of hiding it. A reviewer can reproduce all three: Run 1 with `python main.py --demo --offline`, Run 2 from trace SX014 in `data/synthetic_traces.csv`, and Run 3 with `python main.py --demo --offline --simulate-failure threat-intel`.
