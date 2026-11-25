@@ -30,9 +30,15 @@ class InvestigationState(TypedDict, total=False):
 
 class SentinelXAgent:
     def __init__(self, llm=None, offline: bool = False, max_steps: int = 10,
-                 db_path: str = "sentinel_x.db", out_dir: str = "reports"):
+                 db_path: str = "sentinel_x.db", out_dir: str = "reports",
+                 simulate_failure: set | None = None):
         self.llm = llm; self.offline = offline; self.max_steps = max_steps
         self.db_path = db_path; self.out_dir = out_dir
+        # Deliberately induced failures, for the robustness demo only.
+        # Currently supported: {"threat-intel"} — the threat-intel tool is
+        # pointed at a host that does not exist, so it fails for real and
+        # the agent must detect the failure, retry once, and recover.
+        self.simulate_failure = set(simulate_failure or [])
         os.makedirs(out_dir, exist_ok=True)
         self.graph = self._build_graph()
 
@@ -96,7 +102,31 @@ class SentinelXAgent:
 
     def _check_ip_device(self, s):
         ip_info = check_ip(s["trace"]["ip"])
-        ti = search_threat_intel(f"{s['trace']['ip']} suspicious login brute force")
+        query = f"{s['trace']['ip']} suspicious login brute force"
+        if "threat-intel" in self.simulate_failure:
+            # Deliberately induced failure: point the tool at a host that
+            # does not exist, so the request fails for real. Detect it,
+            # retry once, then recover by continuing with the other
+            # evidence and recording exactly what is missing.
+            bad_url = "https://threat-intel.invalid.example/html/?q="
+            attempt1 = search_threat_intel(query, base_url=bad_url, timeout=3)
+            err1 = attempt1.get("error", "unknown error")
+            attempt2 = search_threat_intel(query, base_url=bad_url, timeout=3)
+            err2 = attempt2.get("error", "unknown error")
+            ti = {"query": query, "results": [], "count": 0,
+                  "error": err2, "attempts": 2, "recovered": True,
+                  "note": "Threat-intel tool failed twice (simulated failure) and was skipped; "
+                          "investigation continued on log analysis, IP note and evidence graph. "
+                          "Public threat-intel evidence is missing from this run."}
+            step = ("Check IP/device history: " + str(ip_info) + ". "
+                    f"Threat-intel tool FAILED (attempt 1: {err1}; retry attempt 2: {err2}). "
+                    "Failure detected — no results returned. Recovered by continuing with "
+                    "log analysis, IP note and evidence graph; threat-intel evidence is "
+                    "recorded as missing in the final report.")
+            return {"ip_info": ip_info, "threat_intel": ti,
+                    "steps": s["steps"] + [step],
+                    "tool_calls": s.get("tool_calls", 0) + 2}
+        ti = search_threat_intel(query)
         return {"ip_info": ip_info, "threat_intel": ti,
                 "steps": s["steps"] + [f"Check IP/device history: {ip_info}. Threat intel hits: {ti.get('count', 0)}."],
                 "tool_calls": s.get("tool_calls", 0) + 2}
@@ -195,6 +225,8 @@ class SentinelXAgent:
                   "verdict": final.get("verdict"), "draft_verdict": final.get("draft_verdict"),
                   "score": final.get("score"), "risk": final.get("risk"),
                   "verification": final.get("verification"), "missing_evidence": final.get("missing_evidence"),
+                  "threat_intel": final.get("threat_intel"),
+                  "simulated_failure": sorted(self.simulate_failure),
                   "graph": gs, "steps": final.get("steps"), "tool_calls": final.get("tool_calls"),
                   "execution_time_seconds": elapsed, "unsupported_conclusions": unsupported,
                   "approval_status": final.get("approval_status"), "report_path": report_path}
