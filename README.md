@@ -3,7 +3,7 @@
 **Author:** Mohit Kumar — B.Tech CSE (final year), Amity University Rajasthan, CGPA 7.52
 **GitHub:** https://github.com/Mohit333707/sentinel-x
 **Built for:** Xiarch Bharat Pvt Ltd — Agentic AI Engineer Intern assessment
-**Time spent:** 7 hours, building Sentinel (the first version) and then SENTINEL-X on the same day, 25 November 2026.
+**Time spent:** 15 hours, building Sentinel (the first version) and then SENTINEL-X, 25 November 2026.
 
 SENTINEL-X investigates suspicious login activity. You give it a goal in plain English, like "Investigate suspicious login activity. IP: 192.0.2.45, Failed logins: 35, Successful login: 1, Time: 02:30 AM, Device: Unknown". It reads the logs, checks the IP and device, links every fact into a graph, checks its own verdict against that graph, and only then writes a report. It never decides from one alert alone. It never guesses when the evidence is thin — it says `INSUFFICIENT_EVIDENCE` and lists what is missing. And it never blocks an IP or resets a password on its own. Every dangerous action waits for a human to approve it.
 
@@ -189,6 +189,10 @@ Trace JSON: reports/trace_SX-DBB1B7B7.json
 
 And the report it writes ends with the recommendation "Block the IP, force password reset, review the account", the human-approval note "PENDING — human approval required before any dangerous action (block/reset)", and the nine steps the agent took.
 
+## Handling failure on purpose — the deliberately induced failure
+
+The task asks the agent to handle at least one deliberately induced failure gracefully, so I built one in and proved it. Running `python main.py --demo --offline --simulate-failure threat-intel` points the threat-intel tool at `https://threat-intel.invalid.example`, a host that does not exist, so the request fails for real with a connection error. The agent detects the failure, retries once, and then recovers: it carries on with the log analysis, the IP note, and the evidence graph, finishes with the same verdict as the clean run (MALICIOUS, HIGH, score 5.0, trace SX-CD1EBF01, 0.693 seconds), and writes plainly into the final report that public threat-intel evidence is missing from this run. The full failure record — both error strings, 2 attempts, `recovered: true` — is in `reports/trace_SX-CD1EBF01.json` under `threat_intel`, and the whole run is written up as Run 3 in `docs/submission/02-Sample-Run-Transcript.pdf`. The flag is in `main.py` (`--simulate-failure`, choices: `threat-intel`), the branch is in `sentinel_x/agent.py` (`_check_ip_device`), the tool takes a `base_url` argument for this test in `sentinel_x/tools.py`, and the test `test_simulated_threat_intel_failure_recovers` in `tests/test_sentinel_x.py` covers it. I also re-ran the same command through the CLI afterwards (trace SX-035255A1, same verdict and recovery in 0.452 seconds), so it reproduces.
+
 ## Submission files — which file goes to which Google Form field
 
 Every upload document is a separate file under `docs/submission/`. Nothing is merged into one big file. `05-Code.zip` is not made here; the parent makes it separately.
@@ -196,11 +200,12 @@ Every upload document is a separate file under `docs/submission/`. Nothing is me
 | Google Form field | File to upload |
 |---|---|
 | Architecture diagram | `docs/submission/01-Architecture-Diagram.png` and `docs/submission/01-Architecture-Diagram.pdf` |
-| Sample run transcript | `docs/submission/02-Sample-Run-Transcript.pdf` (also `.md` and `.txt` in the same folder) |
+| Sample run transcripts (3 runs) | `docs/submission/02-Sample-Run-Transcript.pdf` (also `.md` and `.txt` in the same folder) — Run 1: demo SX-DBB1B7B7 (MALICIOUS), Run 2: benign SX014 / SX-8309A2FF, Run 3: same demo with the threat-intel tool deliberately broken, showing the recovery (SX-CD1EBF01) |
 | Synthetic test traces | `docs/submission/03-Synthetic-Test-Traces.csv` (also `.json` with the same 20 labelled traces) |
 | Monitoring report | `docs/submission/04-Monitoring-Report.pdf` (also `.html` dashboard output in the same folder) |
 | Code | `05-Code.zip` — made separately by the parent, not in this repo |
 | Form answers / write-up | `docs/submission/FORM-ANSWERS.md` |
+| One-page write-up | `docs/submission/06-One-Page-Writeup.pdf` (also `.md` in the same folder) — design decisions, limitations, and what I would do differently with more time, exactly 1 page |
 
 ## Limitations — stated plainly
 
@@ -239,5 +244,5 @@ Fifth, add a confidence number that comes from the graph itself — for example,
 - `data/synthetic_traces.csv` and `.json` — the 20 hand-designed traces.
 - `evaluation/run_evaluation.py`, `evaluation/evaluation_report.json`, `evaluation/evaluation_report.md`.
 - `tests/test_sentinel_x.py` — 14 tests.
-- `docs/submission/` — numbered upload files (01 architecture diagram, 02 sample run transcript, 03 synthetic test traces, 04 monitoring report), `FORM-ANSWERS.md`, plus the older unnumbered copies, and the script that builds the submission (`make_submission.py`).
+- `docs/submission/` — numbered upload files (01 architecture diagram, 02 sample run transcript with 3 runs, 03 synthetic test traces, 04 monitoring report, 06 one-page write-up), `FORM-ANSWERS.md`, plus the older unnumbered copies, and the scripts that build the submission (`make_submission.py`, `make_transcript_pdf.py`).
 - `INTERVIEW_TALK.md` — short notes I would use to talk through this project in an interview.
