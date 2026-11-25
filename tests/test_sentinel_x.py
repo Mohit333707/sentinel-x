@@ -81,6 +81,20 @@ def test_offline_agent_abstains_on_borderline(tmp_path):
     r = agent.run("Investigate suspicious login activity. IP: 203.0.113.88, Failed logins: 9, Successful login: 0, Time: 02:00 AM, Device: Known", trace=BORDER)
     assert r["verdict"] == "INSUFFICIENT_EVIDENCE"
 
+def test_simulated_threat_intel_failure_recovers(tmp_path):
+    # The threat-intel tool is pointed at a host that does not exist, so it
+    # fails for real. The agent must still finish with a verdict and say
+    # plainly that the threat-intel evidence is missing.
+    agent = SentinelXAgent(offline=True, db_path=str(tmp_path / "x.db"), out_dir=str(tmp_path),
+                           simulate_failure={"threat-intel"})
+    r = agent.run("Investigate suspicious login activity. IP: 192.0.2.45, Failed logins: 35, Successful login: 1, Time: 02:30 AM, Device: Unknown")
+    assert r["verdict"] == "MALICIOUS" and r["risk"] == "HIGH"
+    ti = r["threat_intel"]
+    assert ti["count"] == 0 and ti.get("recovered") is True and ti.get("attempts") == 2
+    assert "error" in ti and ti["error"]
+    assert any("FAILED" in s and "Recovered" in s for s in r["steps"])
+    assert r["simulated_failure"] == ["threat-intel"]
+
 def test_no_key_raises_clean_error(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
