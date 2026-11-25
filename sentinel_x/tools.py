@@ -59,11 +59,18 @@ def check_ip(ip: str) -> dict:
     except Exception as exc:
         return {"ip": ip, "error": str(exc), "status": "lookup_failed"}
 
-def search_threat_intel(query: str) -> dict:
-    """Free DuckDuckGo HTML search (no key). Returns titles only; never crashes."""
+def search_threat_intel(query: str, base_url: str | None = None, timeout: int = 10) -> dict:
+    """Free DuckDuckGo HTML search (no key). Returns titles only; never crashes.
+
+    `base_url` is only used by the deliberately-induced failure test
+    (see `python main.py --demo --offline --simulate-failure threat-intel`):
+    pointing it at a host that does not exist makes the request fail
+    with a real network error, so the agent has to detect and recover.
+    """
     try:
-        url = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote(query)
-        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        base = base_url or "https://html.duckduckgo.com/html/?q="
+        url = base + urllib.parse.quote(query)
+        r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=timeout)
         titles = re.findall(r'class="result__a"[^>]*>([^<]+)<', r.text)[:5]
         return {"query": query, "results": titles, "count": len(titles)}
     except Exception as exc:
